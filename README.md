@@ -34,7 +34,7 @@ Because this is a static HTML application, it can be hosted on services such as:
 
 ### Run from GitHub
 
-Run it (from here)[https://pascalbros.github.io/Checklist-Maker]
+Run it [from here](https://pascalbros.github.io/Checklist-Maker)
 
 ### Run locally
 
