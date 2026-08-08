@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checklist Maker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#141414;
+    --panel:#1C1C1C;
+    --panel-line:#2E2E2E;
+    --text:#EDEDED;
+    --text-dim:#8F8F8F;
+    --paper:#FFFFFF;
+    --ink:#111111;
+    --ink-soft:#4A4A4A;
+    --rule:#111111;
+    --leader:#9A9A9A;
+    --font-ui:'Helvetica Neue',Arial,sans-serif;
+    --font-card:'Arial Narrow','Helvetica Neue',Arial,sans-serif;
+    --font-mono:'Courier New',Courier,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-ui);
+    min-height:100vh;
+  }
+
+  /* ---------- TOP BAR ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:16px 28px;
+    border-bottom:1px solid var(--panel-line);
+    background:var(--panel);
+    flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{
+    width:28px;height:28px;
+    border:1.5px solid var(--text);
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700;
+    flex-shrink:0;
+  }
+  .brand-text{text-transform:uppercase;letter-spacing:3px;font-weight:700;font-size:13px;}
+  .brand-text small{display:block;letter-spacing:1.5px;font-weight:400;font-size:9.5px;color:var(--text-dim);margin-top:2px;text-transform:uppercase;}
+  .export-row{display:flex;gap:10px;flex-wrap:wrap;}
+  button{font-family:var(--font-ui);cursor:pointer;border-radius:2px;}
+  .btn{
+    padding:10px 16px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.3px;
+    border:1px solid var(--panel-line);background:var(--panel);color:var(--text);
+    transition:border-color .15s,opacity .15s;
+  }
+  .btn:hover{border-color:var(--text);}
+  .btn-primary{background:var(--text);color:#141414;border-color:var(--text);}
+  .btn-primary:hover{opacity:.85;}
+  .btn:disabled{opacity:.4;cursor:default;}
+
+  /* ---------- LAYOUT ---------- */
+  .layout{display:grid;grid-template-columns:minmax(340px,440px) 1fr;min-height:calc(100vh - 66px);}
+  @media (max-width:900px){.layout{grid-template-columns:1fr;}}
+
+  /* ---------- EDITOR ---------- */
+  .editor{padding:24px 26px 60px;border-right:1px solid var(--panel-line);overflow-y:auto;}
+  .field-label{text-transform:uppercase;font-size:10px;letter-spacing:1.4px;color:var(--text-dim);font-weight:700;margin-bottom:6px;display:block;}
+  .title-input{
+    width:100%;padding:11px 12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+    font-size:14px;background:var(--panel);border:1px solid var(--panel-line);color:var(--text);border-radius:2px;
+  }
+  input:focus{outline:1px solid var(--text);}
+
+  .settings-row{display:flex;gap:22px;margin:18px 0 22px;flex-wrap:wrap;}
+  .segmented{display:flex;border:1px solid var(--panel-line);border-radius:2px;overflow:hidden;}
+  .segmented button{
+    padding:8px 12px;font-size:11px;font-weight:700;background:var(--panel);color:var(--text-dim);
+    border:none;border-right:1px solid var(--panel-line);letter-spacing:.5px;
+  }
+  .segmented button:last-child{border-right:none;}
+  .segmented button.active{background:var(--text);color:#141414;}
+
+  .section-block{border:1px solid var(--panel-line);border-radius:3px;margin-bottom:14px;background:var(--panel);}
+  .section-head{display:flex;align-items:center;gap:8px;padding:10px 10px;border-bottom:1px solid var(--panel-line);}
+  .section-head input{
+    flex:1;padding:8px 9px;font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+    background:#141414;border:1px solid var(--panel-line);color:var(--text);border-radius:2px;
+  }
+  .section-actions{display:flex;gap:4px;}
+  .icon-btn{
+    width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:transparent;
+    border:1px solid var(--panel-line);color:var(--text-dim);font-size:13px;line-height:1;border-radius:2px;flex-shrink:0;
+  }
+  .icon-btn:hover{border-color:var(--text);color:var(--text);}
+  .icon-btn.danger:hover{border-color:#C4462F;color:#C4462F;}
+
+  .items-wrap{padding:8px 10px 10px;}
+
+  .section-color-row{display:flex;align-items:center;gap:6px;padding:0 10px 10px;flex-wrap:wrap;}
+  .section-color-label{font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-right:2px;}
+  .swatch{
+    width:20px;height:20px;border-radius:3px;border:1px solid var(--panel-line);cursor:pointer;
+    flex-shrink:0;padding:0;display:flex;align-items:center;justify-content:center;
+    font-size:11px;color:var(--text-dim);background:var(--panel);
+  }
+  .swatch.selected{outline:2px solid var(--text);outline-offset:1px;}
+  .swatch-custom{
+    width:20px;height:20px;border-radius:3px;border:1px solid var(--panel-line);cursor:pointer;
+    padding:0;background:none;-webkit-appearance:none;appearance:none;flex-shrink:0;
+  }
+  .swatch-custom::-webkit-color-swatch-wrapper{padding:0;}
+  .swatch-custom::-webkit-color-swatch{border:none;border-radius:2px;}
+  .item-row{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;margin-bottom:6px;}
+  .item-row input{
+    width:100%;padding:7px 8px;font-family:var(--font-mono);font-size:12px;background:#141414;
+    border:1px solid var(--panel-line);color:var(--text);border-radius:2px;
+  }
+  .item-row input.confirm-input{text-transform:uppercase;}
+  .item-row .row-actions{display:flex;gap:3px;}
+  .add-item-btn{
+    width:100%;padding:8px;margin-top:2px;background:transparent;border:1px dashed var(--panel-line);
+    color:var(--text-dim);font-size:10.5px;text-transform:uppercase;letter-spacing:1.2px;font-weight:700;
+  }
+  .add-item-btn:hover{border-color:var(--text);color:var(--text);}
+
+  .add-section-btn{
+    width:100%;padding:12px;background:transparent;border:1px dashed var(--panel-line);color:var(--text-dim);
+    font-size:11.5px;text-transform:uppercase;letter-spacing:1.4px;font-weight:700;margin-top:6px;
+  }
+  .add-section-btn:hover{border-color:var(--text);color:var(--text);}
+
+  .hint{margin-top:22px;font-size:11px;line-height:1.6;color:var(--text-dim);border-left:2px solid var(--panel-line);padding-left:12px;}
+  .hint code{background:var(--panel);border:1px solid var(--panel-line);padding:1px 4px;border-radius:2px;font-family:var(--font-mono);font-size:10.5px;color:var(--text);}
+
+  .save-load{margin-top:26px;padding-top:20px;border-top:1px solid var(--panel-line);}
+  .save-load-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .save-load-row .btn{flex:1 1 auto;padding:9px 10px;font-size:10.5px;}
+
+  /* ---------- PREVIEW ---------- */
+  .preview-wrap{display:flex;flex-direction:column;align-items:center;padding:36px 20px 60px;overflow-y:auto;}
+  .preview-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:14px;}
+
+  .warning{
+    display:none;align-items:center;gap:8px;max-width:378px;width:100%;
+    background:#242118;border:1px solid #4a4230;color:#E7D9A8;
+    font-size:11px;line-height:1.4;padding:9px 11px;border-radius:2px;margin-bottom:14px;
+  }
+
+  #page{
+    width:378px;
+    aspect-ratio:148/210;
+    background:var(--paper);
+    color:var(--ink);
+    box-shadow:0 16px 34px rgba(0,0,0,.55);
+    padding:18px 16px 14px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    font-family:var(--font-card);
+  }
+  .page-header{flex:0 0 auto;border-bottom:1.6px solid var(--rule);padding-bottom:7px;margin-bottom:9px;text-align:center;}
+  .page-title{font-weight:700;text-transform:uppercase;letter-spacing:1.3px;font-size:15px;word-break:break-word;}
+
+  .columns-row{flex:1 1 auto;display:flex;min-height:0;}
+  .column{flex:1 1 0;padding:0 9px;overflow:hidden;border-right:1px solid var(--rule);min-width:0;}
+  .column:first-child{padding-left:0;}
+  .column:last-child{border-right:none;padding-right:0;}
+
+  .section{margin-bottom:9px;}
+  .section-title{
+    font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.6px;
+    border-bottom:1px solid var(--rule);padding-bottom:2px;margin-bottom:3px;
+  }
+  .section-title.colored{
+    border-bottom:none;padding:3px 6px;margin-bottom:5px;border-radius:1px;
+  }
+  .item-row-preview{display:flex;align-items:flex-end;gap:3px;padding:1.5px 0;font-size:9.6px;line-height:1.25;}
+  .item-value{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%;}
+  .item-leader{flex:1;border-bottom:1px dotted var(--leader);margin-bottom:2px;min-width:5px;}
+  .item-confirm{font-weight:700;white-space:nowrap;text-transform:uppercase;}
+
+  #page.compact .page-title{font-size:13.5px;}
+  #page.compact .section-title{font-size:8.6px;margin-bottom:2px;padding-bottom:1.5px;}
+  #page.compact .section-title.colored{padding:2px 5px;margin-bottom:4px;}
+  #page.compact .item-row-preview{font-size:8.2px;padding:1px 0;}
+  #page.compact .section{margin-bottom:6px;}
+  #page.compact .column{padding:0 7px;}
+
+  .card-empty{text-align:center;color:var(--ink-soft);font-size:11px;padding:20px 0;text-transform:uppercase;letter-spacing:1px;}
+
+  @media (max-width:480px){
+    .topbar{padding:14px 16px;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">✓</div>
+      <div class="brand-text">Checklist Maker<small>Procedure Card Editor</small></div>
+    </div>
+    <div class="export-row">
+      <button class="btn" id="btn-png">Export PNG</button>
+      <button class="btn btn-primary" id="btn-pdf">Export PDF · A5</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="editor">
+      <label class="field-label" for="title-input">Checklist title</label>
+      <input id="title-input" class="title-input" type="text" maxlength="60" placeholder="e.g. Drones — NORMAL PROCEDURES">
+
+      <div class="settings-row">
+        <div>
+          <span class="field-label">Columns</span>
+          <div class="segmented" id="column-select">
+            <button data-cols="1">1</button>
+            <button data-cols="2">2</button>
+            <button data-cols="3">3</button>
+          </div>
+        </div>
+        <div>
+          <span class="field-label">Density</span>
+          <div class="segmented" id="density-select">
+            <button data-density="standard">Standard</button>
+            <button data-density="compact">Compact</button>
+          </div>
+        </div>
+      </div>
+
+      <span class="field-label">Sections</span>
+      <div id="sections-list"></div>
+      <button class="add-section-btn" id="add-section">+ Add section</button>
+
+      <div class="hint">
+        Build one checklist per <strong>section</strong> (e.g. "Before Start", "Engine Start", "Before Takeoff"). Every item has a <strong>value</strong> and a <strong>confirmation</strong> response — they're joined with a dotted leader. Give a section's title bar a background color if you'd like, or leave it as "None" — the title text automatically switches between black and white to stay readable. All sections flow together onto a single A5 page, split across columns like a printed cockpit card.
+      </div>
+
+      <div class="save-load">
+        <span class="field-label">Save &amp; load</span>
+        <div class="save-load-row">
+          <button class="btn" id="export-md">Export .md</button>
+          <button class="btn" id="import-file">Import file</button>
+        </div>
+        <input type="file" id="import-input" accept=".md,.markdown,.txt" style="display:none;">
+        <div class="hint" style="margin-top:10px;">
+          Export saves your checklist as a plain text <code>.md</code> file you can keep, version, or edit by hand. Import loads a previously exported file back into the editor, replacing what's here now.
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-wrap">
+      <div class="preview-label">Live preview · A5</div>
+      <div class="warning" id="overflow-warning">⚠ Content overflows one A5 page. Try adding a column, switching to Compact density, or trimming items.</div>
+      <div id="page">
+        <div class="page-header">
+          <div class="page-title" id="preview-title">UNTITLED CHECKLIST</div>
+        </div>
+        <div class="columns-row" id="columns-row"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+let checklist = {
+  title: "Drones — Normal Procedures",
+  sections: [
+    {
+      title: "Before leaving home",
+      color: null,
+      items: [
+        { value: "Drone Batteries", confirm: "CHARGED" },
+        { value: "Transmitter", confirm: "CHARGED" },
+        { value: "Drone", confirm: "CHECKED" },
+        { value: "Goggles", confirm: "CHECKED" },
+        { value: "Goggles Batteries", confirm: "CHARGED" },
+        { value: "Spare Propellers", confirm: "PACKED" }
+      ]
+    },
+    {
+      title: "At the flight site",
+      color: null,
+      items: [
+        { value: "Weather", confirm: "CHECKED" },
+        { value: "Airspace", confirm: "CHECKED" },
+        { value: "Flight Area", confirm: "CLEAR" },
+        { value: "Takeoff Area", confirm: "CLEAR" }
+      ]
+    },
+    {
+      title: "Before takeoff",
+      color: null,
+      items: [
+        { value: "Propellers", confirm: "CHECKED" },
+        { value: "Battery", confirm: "CONNECTED" },
+        { value: "GPS", confirm: "READY" },
+        { value: "Home Point", confirm: "SET" },
+        { value: "Controller", confirm: "CONNECTED" }
+      ]
+    },
+    {
+      title: "Before landing",
+      color: null,
+      items: [
+        { value: "Battery", confirm: "CHECKED" },
+        { value: "Landing Area", confirm: "CLEAR" },
+        { value: "Flight Path", confirm: "CLEAR" }
+      ]
+    },
+    {
+      title: "After flight",
+      color: null,
+      items: [
+        { value: "Drone", confirm: "CHECKED" },
+        { value: "Battery", confirm: "REMOVED" },
+        { value: "Propellers", confirm: "CHECKED" },
+        { value: "Equipment", confirm: "PACKED" }
+      ]
+    }
+  ]
+};
+
+  let numColumns = 2;
+  let density = 'standard';
+
+  const titleInput = document.getElementById('title-input');
+  const sectionsList = document.getElementById('sections-list');
+  const previewTitle = document.getElementById('preview-title');
+  const columnsRow = document.getElementById('columns-row');
+  const pageEl = document.getElementById('page');
+  const overflowWarning = document.getElementById('overflow-warning');
+  const columnSelectEl = document.getElementById('column-select');
+  const densitySelectEl = document.getElementById('density-select');
+
+  function escapeHtml(str){
+    return (str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  const SWATCHES = ['#000000', '#333333', '#1B3A5C', '#1F3D2B', '#6E1F24', '#B9822A', '#1F5C56', '#4A2E6B'];
+
+  function contrastTextColor(hex){
+    if (!hex) return null;
+    const c = hex.replace('#', '');
+    const r = parseInt(c.substr(0, 2), 16), g = parseInt(c.substr(2, 2), 16), b = parseInt(c.substr(4, 2), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.55 ? '#111111' : '#FFFFFF';
+  }
+
+  /* ---------------- EDITOR ---------------- */
+  function renderEditor(){
+    sectionsList.innerHTML = '';
+    checklist.sections.forEach((section, si) => {
+      const block = document.createElement('div');
+      block.className = 'section-block';
+
+      const head = document.createElement('div');
+      head.className = 'section-head';
+      head.innerHTML = `
+        <input type="text" class="section-title-input" placeholder="Section title, e.g. Before Takeoff" value="${escapeHtml(section.title)}">
+        <div class="section-actions">
+          <button class="icon-btn" data-action="up" title="Move section up">↑</button>
+          <button class="icon-btn" data-action="down" title="Move section down">↓</button>
+          <button class="icon-btn danger" data-action="remove" title="Remove section">×</button>
+        </div>
+      `;
+      head.querySelector('.section-title-input').addEventListener('input', e => {
+        section.title = e.target.value; renderPreview();
+      });
+      head.querySelector('[data-action="up"]').addEventListener('click', () => {
+        if (si === 0) return;
+        [checklist.sections[si-1], checklist.sections[si]] = [checklist.sections[si], checklist.sections[si-1]];
+        renderEditor(); renderPreview();
+      });
+      head.querySelector('[data-action="down"]').addEventListener('click', () => {
+        if (si === checklist.sections.length - 1) return;
+        [checklist.sections[si+1], checklist.sections[si]] = [checklist.sections[si], checklist.sections[si+1]];
+        renderEditor(); renderPreview();
+      });
+      head.querySelector('[data-action="remove"]').addEventListener('click', () => {
+        checklist.sections.splice(si, 1); renderEditor(); renderPreview();
+      });
+      block.appendChild(head);
+
+      const colorRow = document.createElement('div');
+      colorRow.className = 'section-color-row';
+      const label = document.createElement('span');
+      label.className = 'section-color-label';
+      label.textContent = 'Title color';
+      colorRow.appendChild(label);
+
+      const noneBtn = document.createElement('button');
+      noneBtn.type = 'button';
+      noneBtn.className = 'swatch none' + (!section.color ? ' selected' : '');
+      noneBtn.title = 'No color';
+      noneBtn.textContent = '×';
+      noneBtn.addEventListener('click', () => { section.color = null; renderEditor(); renderPreview(); });
+      colorRow.appendChild(noneBtn);
+
+      SWATCHES.forEach(hex => {
+        const sw = document.createElement('button');
+        sw.type = 'button';
+        sw.className = 'swatch' + (section.color && section.color.toLowerCase() === hex.toLowerCase() ? ' selected' : '');
+        sw.style.background = hex;
+        sw.title = hex;
+        sw.addEventListener('click', () => { section.color = hex; renderEditor(); renderPreview(); });
+        colorRow.appendChild(sw);
+      });
+
+      const customInput = document.createElement('input');
+      customInput.type = 'color';
+      customInput.className = 'swatch-custom';
+      customInput.title = 'Custom color';
+      customInput.value = section.color || '#1F3D2B';
+      customInput.addEventListener('input', e => { section.color = e.target.value; renderPreview(); });
+      customInput.addEventListener('change', () => { renderEditor(); });
+      colorRow.appendChild(customInput);
+
+      block.appendChild(colorRow);
+
+      const itemsWrap = document.createElement('div');
+      itemsWrap.className = 'items-wrap';
+      section.items.forEach((item, ii) => {
+        const row = document.createElement('div');
+        row.className = 'item-row';
+        row.innerHTML = `
+          <input type="text" class="value-input" placeholder="Item, e.g. Fuel Selectors" value="${escapeHtml(item.value)}">
+          <input type="text" class="confirm-input" placeholder="Confirmation, e.g. ON" value="${escapeHtml(item.confirm)}">
+          <div class="row-actions">
+            <button class="icon-btn" data-action="up" title="Move up">↑</button>
+            <button class="icon-btn" data-action="down" title="Move down">↓</button>
+            <button class="icon-btn danger" data-action="remove" title="Remove">×</button>
+          </div>
+        `;
+        row.querySelector('.value-input').addEventListener('input', e => { item.value = e.target.value; renderPreview(); });
+        row.querySelector('.confirm-input').addEventListener('input', e => { item.confirm = e.target.value; renderPreview(); });
+        row.querySelector('[data-action="up"]').addEventListener('click', () => {
+          if (ii === 0) return;
+          [section.items[ii-1], section.items[ii]] = [section.items[ii], section.items[ii-1]];
+          renderEditor(); renderPreview();
+        });
+        row.querySelector('[data-action="down"]').addEventListener('click', () => {
+          if (ii === section.items.length - 1) return;
+          [section.items[ii+1], section.items[ii]] = [section.items[ii], section.items[ii+1]];
+          renderEditor(); renderPreview();
+        });
+        row.querySelector('[data-action="remove"]').addEventListener('click', () => {
+          section.items.splice(ii, 1); renderEditor(); renderPreview();
+        });
+        itemsWrap.appendChild(row);
+      });
+
+      const addItemBtn = document.createElement('button');
+      addItemBtn.className = 'add-item-btn';
+      addItemBtn.textContent = '+ Add item';
+      addItemBtn.addEventListener('click', () => {
+        section.items.push({ value: '', confirm: '' });
+        renderEditor(); renderPreview();
+        const inputs = block.querySelectorAll('.value-input');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+      });
+      itemsWrap.appendChild(addItemBtn);
+      block.appendChild(itemsWrap);
+
+      sectionsList.appendChild(block);
+    });
+  }
+
+  document.getElementById('add-section').addEventListener('click', () => {
+    checklist.sections.push({ title: '', color: null, items: [{ value: '', confirm: '' }] });
+    renderEditor(); renderPreview();
+    const blocks = sectionsList.querySelectorAll('.section-title-input');
+    if (blocks.length) blocks[blocks.length - 1].focus();
+  });
+
+  titleInput.addEventListener('input', e => { checklist.title = e.target.value; renderPreview(); });
+
+  function setActiveSegment(container, attr, value){
+    container.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', b.dataset[attr] === String(value));
+    });
+  }
+  columnSelectEl.addEventListener('click', e => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    numColumns = parseInt(btn.dataset.cols, 10);
+    setActiveSegment(columnSelectEl, 'cols', numColumns);
+    renderPreview();
+  });
+  densitySelectEl.addEventListener('click', e => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    density = btn.dataset.density;
+    setActiveSegment(densitySelectEl, 'density', density);
+    renderPreview();
+  });
+
+  /* ---------------- PREVIEW ---------------- */
+  // Fills column 1 completely (by actual rendered height) before spilling into column 2, etc.
+  // Uses real measured heights rather than an estimated weight, so it accounts for the
+  // current density setting and however long each section's content actually is.
+  function fillColumnsByHeight(cols, sectionEls){
+    const colHeight = cols[0].clientHeight;
+    const heights = sectionEls.map(el => {
+      cols[0].appendChild(el);
+      const h = el.getBoundingClientRect().height + parseFloat(getComputedStyle(el).marginBottom || 0);
+      cols[0].removeChild(el);
+      return h;
+    });
+
+    let colIndex = 0, used = 0;
+    sectionEls.forEach((el, i) => {
+      const h = heights[i];
+      if (used > 0 && used + h > colHeight && colIndex < cols.length - 1) {
+        colIndex++;
+        used = 0;
+      }
+      cols[colIndex].appendChild(el);
+      used += h;
+    });
+  }
+
+  function buildSectionEl(section){
+    const div = document.createElement('div');
+    div.className = 'section';
+    const items = section.items.filter(it => it.value || it.confirm);
+    const titleColorStyle = section.color
+      ? ` style="background-color:${section.color};color:${contrastTextColor(section.color)};"`
+      : '';
+    const titleClass = 'section-title' + (section.color ? ' colored' : '');
+    div.innerHTML = `
+      <div class="${titleClass}"${titleColorStyle}>${escapeHtml(section.title) || 'Untitled section'}</div>
+      ${items.map(item => `
+        <div class="item-row-preview">
+          <span class="item-value">${escapeHtml(item.value) || '—'}</span>
+          <span class="item-leader"></span>
+          <span class="item-confirm">${escapeHtml(item.confirm) || '—'}</span>
+        </div>
+      `).join('')}
+    `;
+    return div;
+  }
+
+  function renderPreview(){
+    previewTitle.textContent = checklist.title.trim() ? checklist.title : 'UNTITLED CHECKLIST';
+    pageEl.classList.toggle('compact', density === 'compact');
+    columnsRow.innerHTML = '';
+
+    // Build the empty column shells first — their height is fixed by the page's
+    // A5 aspect ratio (via flex stretch), independent of content, so we can
+    // measure available space before deciding what goes where.
+    const cols = [];
+    for (let i = 0; i < numColumns; i++){
+      const c = document.createElement('div');
+      c.className = 'column';
+      columnsRow.appendChild(c);
+      cols.push(c);
+    }
+
+    const validSections = checklist.sections.filter(s => s.title || s.items.some(it => it.value || it.confirm));
+    if (validSections.length === 0){
+      cols[0].innerHTML = '<div class="card-empty">No sections yet — add one on the left</div>';
+      overflowWarning.style.display = 'none';
+      return;
+    }
+
+    const sectionEls = validSections.map(buildSectionEl);
+    fillColumnsByHeight(cols, sectionEls);
+
+    requestAnimationFrame(() => {
+      let overflow = false;
+      cols.forEach(c => { if (c.scrollHeight > c.clientHeight + 1) overflow = true; });
+      overflowWarning.style.display = overflow ? 'flex' : 'none';
+    });
+  }
+
+  setActiveSegment(columnSelectEl, 'cols', numColumns);
+  setActiveSegment(densitySelectEl, 'density', density);
+
+  /* ---------------- EXPORT ---------------- */
+  function filenameBase(){
+    const base = (checklist.title || 'checklist').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    return base || 'checklist';
+  }
+
+  async function capturePage(){
+    return await html2canvas(pageEl, { scale: 4, backgroundColor: '#FFFFFF', useCORS: true });
+  }
+
+  function setBusy(btn, busyText){
+    const original = btn.textContent;
+    btn.textContent = busyText; btn.disabled = true;
+    return () => { btn.textContent = original; btn.disabled = false; };
+  }
+
+  document.getElementById('btn-png').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-png');
+    const restore = setBusy(btn, 'Rendering…');
+    try {
+      const canvas = await capturePage();
+      const link = document.createElement('a');
+      link.download = filenameBase() + '.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.error(err);
+      alert('Could not export PNG. Please try again.');
+    } finally { restore(); }
+  });
+
+  document.getElementById('btn-pdf').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-pdf');
+    const restore = setBusy(btn, 'Rendering…');
+    try {
+      const canvas = await capturePage();
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'portrait' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, pageH);
+      pdf.save(filenameBase() + '.pdf');
+    } catch (err) {
+      console.error(err);
+      alert('Could not export PDF. Please try again.');
+    } finally { restore(); }
+  });
+
+  /* ---------------- SAVE / LOAD (.md) ---------------- */
+  function downloadText(filename, mime, text){
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // --- Markdown ---
+  // # Title
+  // ## Section [color=#RRGGBB]   (color tag omitted when section has no color)
+  // - Item value :: CONFIRMATION
+  function toMarkdown(cl){
+    const lines = [`# ${cl.title || 'Untitled Checklist'}`, ''];
+    cl.sections.forEach(section => {
+      const colorTag = section.color ? ` [color=${section.color}]` : '';
+      lines.push(`## ${section.title || 'Untitled section'}${colorTag}`);
+      section.items.forEach(item => {
+        if (!item.value && !item.confirm) return;
+        lines.push(`- ${item.value} :: ${item.confirm}`);
+      });
+      lines.push('');
+    });
+    return lines.join('\n').trim() + '\n';
+  }
+
+  function fromMarkdown(text){
+    const lines = text.split(/\r?\n/);
+    const result = { title: '', sections: [] };
+    let currentSection = null;
+    const colorTagRe = /\s*\[color=(#[0-9a-fA-F]{6}|none)\]\s*$/;
+    lines.forEach(raw => {
+      const line = raw.trim();
+      if (!line) return;
+      if (line.startsWith('## ')){
+        let heading = line.slice(3).trim();
+        let color = null;
+        const m = heading.match(colorTagRe);
+        if (m){
+          color = m[1] === 'none' ? null : m[1];
+          heading = heading.replace(colorTagRe, '').trim();
+        }
+        currentSection = { title: heading, color, items: [] };
+        result.sections.push(currentSection);
+      } else if (line.startsWith('# ')){
+        if (!result.title) result.title = line.slice(2).trim();
+      } else if (line.startsWith('- ') || line.startsWith('* ')){
+        const body = line.slice(2).trim();
+        const sepIndex = body.includes('::') ? body.indexOf('::') : body.indexOf('|');
+        let value = body, confirm = '';
+        if (sepIndex !== -1){
+          value = body.slice(0, sepIndex).trim();
+          confirm = body.slice(sepIndex + (body[sepIndex] === ':' ? 2 : 1)).trim();
+        }
+        if (!currentSection){
+          currentSection = { title: '', color: null, items: [] };
+          result.sections.push(currentSection);
+        }
+        currentSection.items.push({ value, confirm });
+      }
+    });
+    return result;
+  }
+
+  function loadChecklist(parsed){
+    if (!parsed || (!parsed.title && parsed.sections.length === 0)){
+      alert('Could not find any checklist content in that file.');
+      return;
+    }
+    checklist.title = parsed.title || '';
+    checklist.sections = parsed.sections.length ? parsed.sections : [{ title: '', color: null, items: [{ value: '', confirm: '' }] }];
+    checklist.sections.forEach(s => {
+      if (s.color === undefined) s.color = null;
+      if (s.items.length === 0) s.items.push({ value: '', confirm: '' });
+    });
+    renderEditor();
+    renderPreview();
+  }
+
+  document.getElementById('export-md').addEventListener('click', () => {
+    downloadText(filenameBase() + '.md', 'text/markdown', toMarkdown(checklist));
+  });
+  document.getElementById('import-file').addEventListener('click', () => {
+    document.getElementById('import-input').click();
+  });
+  document.getElementById('import-input').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = fromMarkdown(String(reader.result));
+        loadChecklist(parsed);
+      } catch (err) {
+        console.error(err);
+        alert('Could not read that file. Make sure it\'s a .md file exported from this tool.');
+      } finally {
+        e.target.value = '';
+      }
+    };
+    reader.onerror = () => alert('Could not read that file.');
+    reader.readAsText(file);
+  });
+
+  renderEditor();
+  renderPreview();
+</script>
+</body>
+</html>
